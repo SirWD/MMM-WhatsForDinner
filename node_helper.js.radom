@@ -1,0 +1,105 @@
+const NodeHelper = require("node_helper");
+const axios = require("axios");
+
+  const WeatherCodeToIcon = {
+  0: "113",   // Sunny
+  1: "116",   // Mostly sunny
+  2: "116",   // Partly cloudy
+  3: "119",   // Overcast
+  45: "143",  // Fog
+  48: "143",  // Fog
+  51: "266",  // Drizzle
+  53: "266",
+  55: "266",
+  56: "266",
+  57: "266",
+  61: "296",  // Light rain
+  63: "302",  // Moderate rain
+  65: "308",  // Heavy rain
+  66: "308",  // Freezing rain
+  67: "308",
+  71: "332",  // Light snow
+  73: "338",  // Moderate snow
+  75: "338",  // Heavy snow
+  77: "338",  // Snow grains
+  80: "353",  // Rain showers
+  81: "356",
+  82: "356",
+  95: "389",  // Thunderstorm
+  96: "392",  // Thunder + hail
+  99: "395"
+  };
+
+async function fetchOpenMeteoForecast(latitude, longitude, days = 3) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,weathercode&timezone=auto`;
+  const response = await axios.get(url);
+  const { daily } = response.data;
+
+  return Array.from({ length: days }).map((_, i) => ({
+    day: new Date(daily.time[i]).toLocaleDateString("fr-CA", { weekday: "long" }),
+    temp: Math.round(daily.temperature_2m_max[i]),
+    code: daily.weathercode[i],
+    icon: getWeatherIconUrl(daily.weathercode[i]),
+  }));
+}
+
+function getWeatherIconUrl(code) {
+  const icon = WeatherCodeToIcon[code] || "113";
+  return `https://cdn.weatherapi.com/weather/64x64/day/${icon}.png`;
+}
+
+async function fetchRandomMeals(count) {
+  const results = [];
+
+  for (let i = 0; i < count; i++) {
+    try {
+      const response = await axios.get("https://www.themealdb.com/api/json/v1/1/random.php");
+      const meal = response.data.meals[0];
+      results.push({
+        name: meal.strMeal,
+        image: meal.strMealThumb,
+        category: meal.strCategory,
+        area: meal.strArea,
+        instructions: meal.strInstructions
+      });
+    } catch (error) {
+      console.error("Failed to fetch random meal:", error.message);
+    }
+  }
+
+  return results;
+}
+
+module.exports = NodeHelper.create({
+  socketNotificationReceived(notification, payload) {
+    if (notification === "FETCH_WHATSFORDINNER") {
+      this.generateSuggestions(payload);
+    }
+  },
+
+  async generateSuggestions(config) {
+    try {
+      const weather = await fetchOpenMeteoForecast(
+        config.latitude || 45.5,
+        config.longitude || -73.6,
+        config.forecastDays || 3
+      );
+      
+      const suggestions = await Promise.all(weather.map(async (day) => {
+	    const meals = await fetchRandomMeals(2);
+	    return {
+	      day: day.day,
+	      temp: day.temp,
+	      icon: day.icon,
+	      meals: meals.map(m => ({ name: m.name, image: m.image }))
+      	    };
+     }) 
+    );
+
+	console.log("Sending to frontend:", JSON.stringify(suggestions, null, 2));
+      this.sendSocketNotification("WHATSFORDINNER_RESULT", suggestions);
+    } catch (err) {
+      console.error("[MMM-whatsfordinner] Error fetching weather:", err);
+    }
+  }
+});

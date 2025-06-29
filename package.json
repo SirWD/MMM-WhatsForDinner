@@ -1,0 +1,14 @@
+{
+  "name": "MMM-WhatsForDinner",
+  "version": "1.0.0",
+  "description": "MagicMirror module that suggests dinner recipes based on the weather forecast and food restrictions.",
+  "main": "node_helper.js",
+  "scripts": {
+    "start": "node node_helper.js"
+  },
+  "author": "Jean Deslauriers",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.7"
+  }
+}

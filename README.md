@@ -75,7 +75,8 @@ Add the module to your `config.js` file:
 
 ## 📸 Screenshots
 
-> *COMING SOON*
+![Module Screenshot](screenshots/MMM-WhatsForDinner-Main.png)
+
 
 ---
 

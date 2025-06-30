@@ -22,14 +22,16 @@ function getWeatherIconUrl(code) {
 }
 
 // Fetch weather forecast from Open-Meteo API for the specified location and number of days
-async function fetchOpenMeteoForecast(latitude, longitude, days = 3) {
+async function fetchOpenMeteoForecast(latitude, longitude, days, locale) {
+  console.log(`[DEBUG MMM-WhatsForDinner] Fetching Open-Meteo forecast for ${latitude}, ${longitude} for ${days} days in ${locale}`);
+
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,weathercode&timezone=auto`;
   const response = await axios.get(url);
   const { daily } = response.data;
 
   // Build simplified forecast objects
   return Array.from({ length: days }).map((_, i) => ({
-    label: new Date(daily.time[i]).toLocaleDateString("fr-CA", { weekday: "long" }),
+    label: new Date(daily.time[i]).toLocaleDateString(locale, { weekday: "long" }),
     date: daily.time[i],
     temp: Math.round(daily.temperature_2m_max[i]),
     code: daily.weathercode[i],
@@ -82,7 +84,7 @@ function buildWeeklyAIPrompt(weatherDays, config) {
     - Use common ingredients
     - ${restrictionText}
 
-  Respond in this exact JSON format:
+  Respond with only raw JSON, no markdown and no code blocks. Use this exact JSON format:
   {
     "dinner_choices": {
       "YYYY-MM-DD": [
@@ -138,30 +140,29 @@ async function fetchAIMealSuggestionsGpt4(promptText, apiKey) {
       }
     });
 
-    // Remove markdown-style JSON wrapping if present
-    const result = response.data.choices[0].message.content;
+    let result = response.data.choices[0].message.content.trim();
 
-    // Strip code block formatting like ```json ... ```
-    const cleaned = result
-      .replace(/^```(?: json) ?\s * /i, "") // remove starting```
-      .replace(/```$ /, "")               // remove ending ```
-      .trim();
+    // ✅ Remove surrounding code block markers if present
+    if (result.startsWith("```")) {
+      result = result.replace(/^```(?:json)?\s*/i, "").replace(/```$/, "").trim();
+    }
 
     let parsed;
 
     try {
-      parsed = JSON.parse(cleaned);
+      parsed = JSON.parse(result);
     } catch (jsonError) {
-      console.error("[MMM-whatsfordinner] Failed to parse AI JSON response:", cleaned);
+      console.error("[MMM-WhatsForDinner] Failed to parse AI JSON response:");
+      console.error(result); // Print full result for debugging
       throw jsonError;
     }
 
     return parsed.dinner_choices || {};
-
   } catch (err) {
-    console.error("[MMM-whatsfordinner] Groq GPT-4 meal API error:", err.message);
+    console.error("[MMM-WhatsForDinner] Groq GPT-4 meal API error:", err.message);
     return {};
   }
+
 }
 
 function registerVote({ date, mealName, voteType }) {
@@ -181,7 +182,6 @@ function registerVote({ date, mealName, voteType }) {
 
 // Main MagicMirror module helper
 module.exports = NodeHelper.create({
-  console.log("Test log 123");
 
   // Listen for socket messages from the frontend
   socketNotificationReceived(notification, payload) {
@@ -196,15 +196,31 @@ module.exports = NodeHelper.create({
 
   // Fetch weather forecast and generate AI meal suggestions
   async generateSuggestions(config) {
+
     try {
       const apiKey = config.groqApiKey;
+      if (!apiKey) {
+        console.error("[MMM-WhatsForDinner] Groq API key is missing in config.");
+        return;
+      }
+      if (!config.lat || !config.lon) {
+        console.error("[MMM-WhatsForDinner] Latitude and longitude must be provided in config.");
+        return;
+      }
+      if (!config.numPortions || !config.maxPrepTime || !config.numSuggestions) {
+        console.error("[MMM-WhatsForDinner] Missing required config parameters: numPortions, maxPrepTime, numSuggestions.");
+        return;
+      }
+
 
       // 1. Get weather forecast for next N days
       const weather = await fetchOpenMeteoForecast(
-        config.latitude,
-        config.longitude,
-        config.forecastDays || 7
+        config.lat,
+        config.lon,
+        config.forecastDays || 7,
+        config.locale || "en-US"
       );
+
 
       // 2. Build GPT prompt from weather data
       const prompt = buildWeeklyAIPrompt(weather, config);
@@ -231,11 +247,11 @@ module.exports = NodeHelper.create({
       });
 
       // 5. Send back to frontend
-      //console.log("Sending to frontend:", JSON.stringify(suggestions, null, 2));
+      console.log("Sending to frontend:", JSON.stringify(suggestions, null, 2));
       this.sendSocketNotification("WHATSFORDINNER_RESULT", suggestions);
 
     } catch (err) {
-      console.error("[MMM-whatsfordinner] Error generating suggestions:", err.message);
+      console.error("[MMM-WhatsForDinner] Error generating suggestions:", err.message);
     }
   }
 });

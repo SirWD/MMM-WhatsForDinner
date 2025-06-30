@@ -14,18 +14,29 @@ Module.register("MMM-WhatsForDinner", {
 		numPortions: 4,
 		maxPrepTime: 30,
 		numSuggestions: 3,
-		dietaryRestrictions: [],
-		language: "en"
+		dietaryRestrictions: []
 	},
 
 
 	start() {
 		this.loaded = true;
 		this.suggestions = [];
+
 		this.config = {
 			...this.defaults,
 			...this.config
 		};
+
+		if (!this.config.language) {
+			this.config.language = config.language || "en";
+		}
+
+		if (!this.config.locale) {
+			this.config.locale = config.locale || "en-US";
+		}
+
+		console.log("MMM-WhatsForDinner config:", this.config);
+
 		this.getData();
 		this.scheduleUpdate();
 	},
@@ -48,19 +59,6 @@ Module.register("MMM-WhatsForDinner", {
 			dayDiv.className = 'weather-day';
 			dayDiv.textContent = dayData.day;
 
-
-			/*
-			const weatherIcon = document.createElement('img');
-			weatherIcon.className = 'weather-icon';
-
-			weatherIcon.src = dayData.icon;
-			weatherIcon.onerror = function () {
-				weatherIcon.onerror = null; // prevent infinite recursion
-				weatherIcon.src = "/modules/MMM-whatsfordinner/icons/placeholder.png";
-			};
-			weatherIcon.alt = 'Weather Icon';
-			*/
-
 			const iconClass = weatherCodeToIcon[dayData.code] || "wi-na";
 
 			const weatherIcon = document.createElement("i");
@@ -76,7 +74,7 @@ Module.register("MMM-WhatsForDinner", {
 
 			weatherSection.appendChild(weatherIcon);
 			weatherSection.appendChild(weatherTemp);
-			//weatherSection.appendChild(weatherIconWrapper);
+
 
 			// Menu Section
 			const menuSection = document.createElement('div');
@@ -147,11 +145,12 @@ Module.register("MMM-WhatsForDinner", {
 	},
 
 	getHeader() {
-		return "Qu'est-ce qu'on mange ?";
+		return this.config.header || this.defaults.header;
 	},
 
 	getData() {
-		this.sendSocketNotification("FETCH_WHATSFORDINNER", this.config);
+
+		this.sendSocketNotification("FETCH_WHATSFORDINNER", this.config)
 	},
 
 	scheduleUpdate() {

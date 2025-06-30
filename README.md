@@ -90,7 +90,6 @@ Add key in your module config.
 
 ## 📅 Future Improvements (Planned)
 
-- 🔄 Manual refresh button
 - 📜 Recipe links or instructions
 - 🛒 Auto-generated shopping list
 - 🗳️ Voting System (Each suggested meal can be upvoted or downvoted. The most popular meal per day is highlighted.) 
@@ -112,5 +111,5 @@ Pull requests and suggestions welcome. Feel free to fork, improve, and share!
 ## 🙌 Acknowledgements
 
 - [MagicMirror²](https://github.com/MichMich/MagicMirror)
-- [Groq GPT-4 API](https://console.groq.com)
-- [Open-Meteo on RapidAPI](https://rapidapi.com/open-meteo)
+- [Groq API](https://console.groq.com)
+- [Open-Meteo](https://open-meteo.com/)
